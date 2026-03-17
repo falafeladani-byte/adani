@@ -135,6 +135,9 @@
             const prevOrderCount = useRef(0);
             const isFirstLoad = useRef(true);
 
+            // ==========================================
+            // פונקציות התראה (צליל ופוש)
+            // ==========================================
             const playNotificationSound = () => {
                 try {
                     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -153,6 +156,39 @@
                 } catch (e) { }
             };
 
+            const requestNotificationPermission = () => {
+                if ("Notification" in window) {
+                    if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+                        Notification.requestPermission();
+                    }
+                }
+            };
+
+            const showPushNotification = () => {
+                if (!("Notification" in window)) return;
+                if (Notification.permission === "granted") {
+                    try {
+                        navigator.serviceWorker.getRegistration().then(reg => {
+                            const options = {
+                                body: "הזמנה חדשה התקבלה בלוח, כנס להכין!",
+                                icon: "logo.jpg",
+                                vibrate: [200, 100, 200]
+                            };
+                            if (reg) {
+                                reg.showNotification("פלאפל עדני - הזמנה חדשה! 🥙", options);
+                            } else {
+                                new Notification("פלאפל עדני - הזמנה חדשה! 🥙", options);
+                            }
+                        });
+                    } catch (err) {
+                        new Notification("פלאפל עדני - הזמנה חדשה! 🥙", {
+                            body: "הזמנה חדשה התקבלה בלוח, כנס להכין!"
+                        });
+                    }
+                }
+            };
+            // ==========================================
+
             // Auth init
             useEffect(() => {
                 if (!auth) return;
@@ -165,42 +201,35 @@
                 return () => unsubscribe();
             }, []);
 
-            // Firebase data listeners — מופעלים מיד, ללא תלות ב-auth
+            // Firebase data listeners
             useEffect(() => {
                 if (!db) return;
-
-                console.log("Starting Firebase listeners...");
 
                 const unsubMenu = db.collection('menu').onSnapshot((snapshot) => {
                     const fetched = [];
                     snapshot.forEach(doc => fetched.push({ id: doc.id, ...doc.data() }));
-                    console.log("Menu snapshot:", fetched.length, "items");
                     if (fetched.length > 0) {
                         fetched.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
                         setMenuItems(fetched);
                     }
-                }, err => console.error("Menu listener error:", err.code, err.message));
+                });
 
                 const unsubOrders = db.collection('orders').onSnapshot((snapshot) => {
                     const fetched = [];
                     snapshot.forEach(doc => fetched.push({ id: doc.id, ...doc.data() }));
                     fetched.sort((a, b) => (a.arrivalTime || '').localeCompare(b.arrivalTime || ''));
-                    console.log("Orders snapshot:", fetched.length, "orders");
                     setOrders(fetched);
-                }, err => console.error("Orders listener error:", err.code, err.message));
+                });
 
                 const unsubWorkers = db.collection('workers').onSnapshot((snapshot) => {
                     const fetched = [];
                     snapshot.forEach(doc => fetched.push({ id: doc.id, ...doc.data() }));
-                    console.log("Workers snapshot:", fetched.length, "workers", fetched.map(w => ({name: w.name, pin: w.pin})));
                     setWorkers(fetched);
-                }, err => console.error("Workers listener error:", err.code, err.message));
+                });
 
                 const unsubSettings = db.collection('settings').doc('general').onSnapshot((docSnap) => {
-                    console.log("Settings snapshot, exists:", docSnap.exists);
                     if (docSnap.exists) {
                         const data = docSnap.data();
-                        console.log("Settings data:", data);
                         const safe = {
                             overrideStatus: data.overrideStatus || 'auto',
                             specialLocation: data.specialLocation || '',
@@ -218,16 +247,14 @@
                         setBitDraft(safe.bitLink);
                         setPayboxDraft(safe.payboxLink);
                     } else {
-                        console.log("Settings doc doesn't exist, creating...");
-                        db.collection('settings').doc('general').set(DEFAULT_SETTINGS)
-                          .catch(e => console.error("Settings init error:", e));
+                        db.collection('settings').doc('general').set(DEFAULT_SETTINGS);
                     }
-                }, err => console.error("Settings listener error:", err.code, err.message));
+                });
 
                 return () => { unsubMenu(); unsubOrders(); unsubWorkers(); unsubSettings(); };
-            }, []); // ← רץ פעם אחת בלבד, ללא תלות ב-user
+            }, []);
 
-            // Notification sound on new orders (skip first load)
+            // Notification sound & push on new orders
             useEffect(() => {
                 if (userRole !== 'admin' && userRole !== 'worker') return;
                 const activeCount = orders.filter(o => o.status === 'new' || o.status === 'pending_approval').length;
@@ -238,6 +265,7 @@
                 }
                 if (activeCount > prevOrderCount.current) {
                     playNotificationSound();
+                    showPushNotification(); // קריאה לפוש!
                 }
                 prevOrderCount.current = activeCount;
             }, [orders, userRole]);
@@ -423,6 +451,7 @@
                     setAnnouncementDraft(settings.announcement || '');
                     setBitDraft(settings.bitLink || '');
                     setPayboxDraft(settings.payboxLink || '');
+                    requestNotificationPermission(); // בקשת פוש
                     setView('dashboard');
                     setPin('');
                     return;
@@ -434,6 +463,7 @@
                     setUserRole('worker');
                     setCurrentWorkerName(workerFromState.name);
                     setCurrentWorkerId(workerFromState.id);
+                    requestNotificationPermission(); // בקשת פוש
                     setView('dashboard');
                     setPin('');
                     return;
@@ -444,13 +474,13 @@
                     db.collection('workers').get().then(snapshot => {
                         const allWorkers = [];
                         snapshot.forEach(doc => allWorkers.push({ id: doc.id, ...doc.data() }));
-                        console.log("Direct Firestore workers:", allWorkers.map(w => ({name: w.name, pin: w.pin, pinType: typeof w.pin})));
                         const found = allWorkers.find(w => String(w.pin) === String(trimmedPin));
                         if (found) {
-                            setWorkers(allWorkers); // עדכן את ה-state
+                            setWorkers(allWorkers); 
                             setUserRole('worker');
                             setCurrentWorkerName(found.name);
                             setCurrentWorkerId(found.id);
+                            requestNotificationPermission(); // בקשת פוש
                             setView('dashboard');
                             setPin('');
                         } else {
@@ -458,7 +488,6 @@
                             setPin('');
                         }
                     }).catch(e => {
-                        console.error("Workers fetch error:", e);
                         showAlert('שגיאה בבדיקת קוד גישה: ' + e.message);
                         setPin('');
                     });
@@ -471,9 +500,7 @@
             const updateSettingsData = (updates) => {
                 if (!db) { showAlert('אין חיבור למסד הנתונים!'); return; }
                 db.collection('settings').doc('general').set(updates, { merge: true })
-                    .then(() => console.log("Settings saved:", updates))
                     .catch(e => {
-                        console.error("Settings save error:", e.code, e.message);
                         if (e.code === 'permission-denied') {
                             showAlert('שגיאת הרשאות Firestore!\n\nב-Firebase Console → Firestore → Rules, החלף ב:\nallow read, write: if true;');
                         } else {
@@ -523,8 +550,7 @@
             const handleDeleteMenuItem = (itemId) => {
                 showConfirm('למחוק מנה מהתפריט?', () => {
                     if (db) {
-                        db.collection('menu').doc(itemId).delete()
-                            .catch(e => { console.error("Menu delete error:", e); showAlert('שגיאה במחיקת מנה.'); });
+                        db.collection('menu').doc(itemId).delete();
                     }
                 });
             };
@@ -537,7 +563,6 @@
                     return;
                 }
                 const newWorker = { name: newWorkerName.trim(), pin: newWorkerPin.trim() };
-                console.log("Adding worker:", newWorker);
                 if (db) {
                     db.collection('workers').add(newWorker)
                         .then(() => {
@@ -546,7 +571,6 @@
                             showAlert('העובד נוסף בהצלחה!');
                         })
                         .catch(e => {
-                            console.error("Worker add error:", e.code, e.message);
                             if (e.code === 'permission-denied') {
                                 showAlert('שגיאת הרשאות! יש לעדכן Firestore Rules ב-Firebase Console.');
                             } else {
@@ -558,10 +582,7 @@
 
             const handleDeleteWorker = (workerId) => {
                 showConfirm('למחוק עובד?', () => {
-                    if (db) {
-                        db.collection('workers').doc(workerId).delete()
-                            .catch(e => { console.error("Worker delete error:", e); showAlert('שגיאה במחיקת עובד.'); });
-                    }
+                    if (db) db.collection('workers').doc(workerId).delete();
                 });
             };
 
@@ -1769,3 +1790,6 @@
     </script>
 </body>
 </html>
+
+
+
