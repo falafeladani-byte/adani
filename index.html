@@ -165,35 +165,42 @@
                 return () => unsubscribe();
             }, []);
 
-            // Firebase data listeners
+            // Firebase data listeners — מופעלים מיד, ללא תלות ב-auth
             useEffect(() => {
-                if (!user || !db) return;
+                if (!db) return;
+
+                console.log("Starting Firebase listeners...");
 
                 const unsubMenu = db.collection('menu').onSnapshot((snapshot) => {
                     const fetched = [];
                     snapshot.forEach(doc => fetched.push({ id: doc.id, ...doc.data() }));
+                    console.log("Menu snapshot:", fetched.length, "items");
                     if (fetched.length > 0) {
                         fetched.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
                         setMenuItems(fetched);
                     }
-                }, err => console.error("Menu error:", err));
+                }, err => console.error("Menu listener error:", err.code, err.message));
 
                 const unsubOrders = db.collection('orders').onSnapshot((snapshot) => {
                     const fetched = [];
                     snapshot.forEach(doc => fetched.push({ id: doc.id, ...doc.data() }));
                     fetched.sort((a, b) => (a.arrivalTime || '').localeCompare(b.arrivalTime || ''));
+                    console.log("Orders snapshot:", fetched.length, "orders");
                     setOrders(fetched);
-                }, err => console.error("Orders error:", err));
+                }, err => console.error("Orders listener error:", err.code, err.message));
 
                 const unsubWorkers = db.collection('workers').onSnapshot((snapshot) => {
                     const fetched = [];
                     snapshot.forEach(doc => fetched.push({ id: doc.id, ...doc.data() }));
+                    console.log("Workers snapshot:", fetched.length, "workers", fetched.map(w => ({name: w.name, pin: w.pin})));
                     setWorkers(fetched);
-                }, err => console.error("Workers error:", err));
+                }, err => console.error("Workers listener error:", err.code, err.message));
 
                 const unsubSettings = db.collection('settings').doc('general').onSnapshot((docSnap) => {
+                    console.log("Settings snapshot, exists:", docSnap.exists);
                     if (docSnap.exists) {
                         const data = docSnap.data();
+                        console.log("Settings data:", data);
                         const safe = {
                             overrideStatus: data.overrideStatus || 'auto',
                             specialLocation: data.specialLocation || '',
@@ -211,13 +218,14 @@
                         setBitDraft(safe.bitLink);
                         setPayboxDraft(safe.payboxLink);
                     } else {
+                        console.log("Settings doc doesn't exist, creating...");
                         db.collection('settings').doc('general').set(DEFAULT_SETTINGS)
                           .catch(e => console.error("Settings init error:", e));
                     }
-                }, err => console.error("Settings error:", err));
+                }, err => console.error("Settings listener error:", err.code, err.message));
 
                 return () => { unsubMenu(); unsubOrders(); unsubWorkers(); unsubSettings(); };
-            }, [user]);
+            }, []); // ← רץ פעם אחת בלבד, ללא תלות ב-user
 
             // Notification sound on new orders (skip first load)
             useEffect(() => {
@@ -404,6 +412,7 @@
                 const trimmedPin = (pin || '').trim();
                 if (!trimmedPin) { showAlert('הזן קוד גישה!'); return; }
 
+                // מנהל ראשי
                 if (trimmedPin === '1234') {
                     setUserRole('admin');
                     setCurrentWorkerName('מנהל ראשי');
@@ -419,19 +428,44 @@
                     return;
                 }
 
-                // FIX: Compare as strings to handle Firestore storing numbers or strings
-                const worker = workers.find(w => String(w.pin) === String(trimmedPin));
-                if (worker) {
+                // ניסיון ראשון — מה-state (מהיר)
+                const workerFromState = workers.find(w => String(w.pin) === String(trimmedPin));
+                if (workerFromState) {
                     setUserRole('worker');
-                    setCurrentWorkerName(worker.name);
-                    setCurrentWorkerId(worker.id);
+                    setCurrentWorkerName(workerFromState.name);
+                    setCurrentWorkerId(workerFromState.id);
                     setView('dashboard');
                     setPin('');
                     return;
                 }
 
-                showAlert('קוד גישה שגוי או שאינו קיים במערכת!');
-                setPin('');
+                // ניסיון שני — ישירות מ-Firestore (לאמינות מקסימלית)
+                if (db) {
+                    db.collection('workers').get().then(snapshot => {
+                        const allWorkers = [];
+                        snapshot.forEach(doc => allWorkers.push({ id: doc.id, ...doc.data() }));
+                        console.log("Direct Firestore workers:", allWorkers.map(w => ({name: w.name, pin: w.pin, pinType: typeof w.pin})));
+                        const found = allWorkers.find(w => String(w.pin) === String(trimmedPin));
+                        if (found) {
+                            setWorkers(allWorkers); // עדכן את ה-state
+                            setUserRole('worker');
+                            setCurrentWorkerName(found.name);
+                            setCurrentWorkerId(found.id);
+                            setView('dashboard');
+                            setPin('');
+                        } else {
+                            showAlert('קוד גישה שגוי או שאינו קיים במערכת!');
+                            setPin('');
+                        }
+                    }).catch(e => {
+                        console.error("Workers fetch error:", e);
+                        showAlert('שגיאה בבדיקת קוד גישה: ' + e.message);
+                        setPin('');
+                    });
+                } else {
+                    showAlert('קוד גישה שגוי!');
+                    setPin('');
+                }
             };
 
             const updateSettingsData = (updates) => {
