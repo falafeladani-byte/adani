@@ -5,15 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>פלאפל עדני - הזמנות אונליין</title>
     <link rel="manifest" href="manifest.json">
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <script>
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "b722fe36-405d-4a1e-b6b3-d1a786fdafeb",
-    });
-  });
-  </script>S
+    
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -23,7 +16,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
 
     <style>
         body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -39,7 +31,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useCallback } = React;
 
-        // =========================================
+        // ==========================================
         // 🔥 FIREBASE CONFIG 🔥
         // ==========================================
         const firebaseConfig = {
@@ -53,15 +45,13 @@
 
         let db = null;
         let auth = null;
-        let messaging = null;
 
         try {
             if (!firebase.apps.length) {
                 firebase.initializeApp(firebaseConfig);
             }
-        db = firebase.firestore();
-        auth = firebase.auth();
-        messaging = firebase.messaging();
+            db = firebase.firestore();
+            auth = firebase.auth();
         } catch(e) {
             console.error("Firebase init error:", e);
         }
@@ -149,7 +139,7 @@
             const isFirstLoad = useRef(true);
 
             // ==========================================
-            // פונקציות התראה (צליל ופוש)
+            // פונקציות התראה 
             // ==========================================
             const playNotificationSound = () => {
                 try {
@@ -169,108 +159,26 @@
                 } catch (e) { }
             };
 
-// ==========================================
-// 🔔 SERVICE WORKER REGISTRATION
-// ==========================================
-const registerServiceWorker = async () => {
-    if (!("serviceWorker" in navigator)) return null;
-    try {
-        const reg = await navigator.serviceWorker.register("service-worker.js", { scope: "/" });
-        console.log("[App] SW registered:", reg.scope);
-        return reg;
-    } catch (err) {
-        console.warn("[App] SW failed:", err.message);
-        return null;
-    }
-};
-
-window.addEventListener("load", () => { registerServiceWorker(); });
-
-const requestNotificationPermission = async () => {
-    if (!("Notification" in window)) return;
-    if (Notification.permission === "default") {
-        await Notification.requestPermission();
-    }
-    if ("serviceWorker" in navigator && Notification.permission === "granted") {
-        await registerServiceWorker();
-    }
-};
-const ONESIGNAL_APP_ID = 'b722fe36-405d-4a1e-b6b3-d1a786fdafeb';
-const ONESIGNAL_REST_KEY = 'os_v2_app_w4rp4nsalvfb5nvt2gtyn7np5oj7f4v2uewuokemxpebt26nt4ejpl54rhuad2lagsz77auhsego3dwwa5halefacotyiyttnb6cegi';
-
-const subscribeWorkerToNotifications = async (workerName) => {
-    try {
-        if (window.OneSignal) {
-            await window.OneSignal.User.addTag("role", "worker");
-            await window.OneSignal.User.addTag("name", workerName);
-            await window.OneSignal.Notifications.requestPermission();
-            console.log('[OneSignal] Worker subscribed ✓');
-        }
-    } catch(e) {
-        console.warn('[OneSignal] Subscribe error:', e);
-    }
-};
-
-const sendPushToWorkers = async (orderData) => {
-    try {
-        await fetch('https://onesignal.com/api/v1/notifications', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Basic ${ONESIGNAL_REST_KEY}`
-            },
-            body: JSON.stringify({
-                app_id: ONESIGNAL_APP_ID,
-                filters: [{ field: "tag", key: "role", relation: "=", value: "worker" }],
-                headings: { en: "פלאפל עדני - הזמנה חדשה! 🥙" },
-                contents: { en: `${orderData.customerName} • ${orderData.arrivalTime} • ${orderData.totalPrice}₪` },
-                url: window.location.href
-            })
-        });
-        console.log('[OneSignal] Push sent ✓');
-    } catch(e) {
-        console.warn('[OneSignal] Push error:', e);
-    }
-};
-
-const showPushNotification = async () => {
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
-    try {
-        if ("serviceWorker" in navigator) {
-            let reg = await navigator.serviceWorker.getRegistration();
-            if (!reg) reg = await registerServiceWorker();
-            if (reg) {
-                const sw = reg.active || reg.waiting || reg.installing;
-                if (sw) {
-                    sw.postMessage({
-                        type: "NEW_ORDER",
-                        payload: {
-                            body: "הזמנה חדשה התקבלה! כנס ללוח להכין 🥙",
-                            icon: "logo.jpg",
-                            url: window.location.href
-                        }
-                    });
-                    return;
-                }
-                await reg.showNotification("פלאפל עדני - הזמנה חדשה! 🥙", {
-                    body: "הזמנה חדשה התקבלה! כנס ללוח להכין 🥙",
-                    icon: "logo.jpg",
-                    vibrate: [200, 100, 200, 100, 200],
-                    requireInteraction: true,
-                    tag: "new-order-" + Date.now()
-                });
-                return;
-            }
-        }
-    } catch (err) { console.warn("[App] SW notification failed:", err); }
-    
-    // Fallback
-    new Notification("פלאפל עדני - הזמנה חדשה! 🥙", {
-        body: "הזמנה חדשה התקבלה! כנס ללוח להכין 🥙",
-        icon: "logo.jpg"
-    });
-};
             // ==========================================
+            // 📧 EmailJS - שליחת אימייל בהזמנה חדשה
+            // ==========================================
+            const sendEmailAlert = (orderData) => {
+                emailjs.send(
+                    'service_gcgnsy4',        // Service ID שסיפקת
+                    'YOUR_TEMPLATE_ID',       // <-- להחליף ב-Template ID מ-EmailJS
+                    {
+                        customerName: orderData.customerName,
+                        arrivalTime: orderData.arrivalTime,
+                        totalPrice: orderData.totalPrice,
+                        phone: orderData.phone
+                    },
+                    'YOUR_PUBLIC_KEY'         // <-- להחליף ב-Public Key מ-EmailJS
+                ).then(() => {
+                    console.log('📧 התראת אימייל נשלחה בהצלחה!');
+                }).catch((err) => {
+                    console.error('שגיאה בשליחת אימייל:', err);
+                });
+            };
 
             // Auth init
             useEffect(() => {
@@ -337,7 +245,7 @@ const showPushNotification = async () => {
                 return () => { unsubMenu(); unsubOrders(); unsubWorkers(); unsubSettings(); };
             }, []);
 
-            // Notification sound & push on new orders
+            // Notification sound on new orders for workers/admin
             useEffect(() => {
                 if (userRole !== 'admin' && userRole !== 'worker') return;
                 const activeCount = orders.filter(o => o.status === 'new' || o.status === 'pending_approval').length;
@@ -348,7 +256,6 @@ const showPushNotification = async () => {
                 }
                 if (activeCount > prevOrderCount.current) {
                     playNotificationSound();
-                    showPushNotification(); // קריאה לפוש!
                 }
                 prevOrderCount.current = activeCount;
             }, [orders, userRole]);
@@ -475,6 +382,9 @@ const showPushNotification = async () => {
                         setArrivalTime('');
                         setCurrentOrderId(orderId);
                         setView('tracking');
+                        
+                        // קריאה לשליחת האימייל
+                        sendEmailAlert(newOrder);
                     })
                     .catch(e => {
                         console.error("Order error:", e);
@@ -534,9 +444,7 @@ const showPushNotification = async () => {
                     setAnnouncementDraft(settings.announcement || '');
                     setBitDraft(settings.bitLink || '');
                     setPayboxDraft(settings.payboxLink || '');
-                    requestNotificationPermission();
                     setView('dashboard');
-                    saveFCMToken('admin_user');
                     setPin('');
                     return;
                 }
@@ -547,11 +455,10 @@ const showPushNotification = async () => {
                     setUserRole('worker');
                     setCurrentWorkerName(workerFromState.name);
                     setCurrentWorkerId(workerFromState.id);
-                    requestNotificationPermission();
                     setView('dashboard');
-                    saveFCMToken(workerFromState.id);
                     setPin('');
                     return;
+                }
 
                 // ניסיון שני — ישירות מ-Firestore (לאמינות מקסימלית)
                 if (db) {
@@ -564,9 +471,7 @@ const showPushNotification = async () => {
                             setUserRole('worker');
                             setCurrentWorkerName(found.name);
                             setCurrentWorkerId(found.id);
-                            requestNotificationPermission();
                             setView('dashboard');
-                            saveFCMToken(found.id);
                             setPin('');
                         } else {
                             showAlert('קוד גישה שגוי או שאינו קיים במערכת!');
@@ -1875,6 +1780,3 @@ const showPushNotification = async () => {
     </script>
 </body>
 </html>
-
-
-
