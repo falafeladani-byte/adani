@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>פלאפל עדני - הזמנות אונליין</title>
     <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "b722fe36-405d-4a1e-b6b3-d1a786fdafeb",
+    });
+  });
+  </script>S
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -186,22 +195,41 @@ const requestNotificationPermission = async () => {
         await registerServiceWorker();
     }
 };
-const VAPID_KEY = 'BCUICRZaSptxM571_dsTc-NQxojMBO0lE0tubmuNOiITuIiSjlz-eDp1V4JdTvDt9v7OVJjyZAoz2IQQu_GxwE4';
+const ONESIGNAL_APP_ID = 'b722fe36-405d-4a1e-b6b3-d1a786fdafeb';
+const ONESIGNAL_REST_KEY = 'os_v2_app_w4rp4nsalvfb5nvt2gtyn7np5oj7f4v2uewuokemxpebt26nt4ejpl54rhuad2lagsz77auhsego3dwwa5halefacotyiyttnb6cegi';
 
-const saveFCMToken = async (workerId) => {
-    if (!messaging || !db || !workerId) return;
+const subscribeWorkerToNotifications = async (workerName) => {
     try {
-        const token = await messaging.getToken({ vapidKey: VAPID_KEY });
-        if (token) {
-            await db.collection('fcm_tokens').doc(workerId).set({
-                token,
-                workerId,
-                updatedAt: new Date().toISOString()
-            });
-            console.log('[FCM] Token saved ✓');
+        if (window.OneSignal) {
+            await window.OneSignal.User.addTag("role", "worker");
+            await window.OneSignal.User.addTag("name", workerName);
+            await window.OneSignal.Notifications.requestPermission();
+            console.log('[OneSignal] Worker subscribed ✓');
         }
-    } catch (err) {
-        console.warn('[FCM] Token error:', err.message);
+    } catch(e) {
+        console.warn('[OneSignal] Subscribe error:', e);
+    }
+};
+
+const sendPushToWorkers = async (orderData) => {
+    try {
+        await fetch('https://onesignal.com/api/v1/notifications', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Basic ${ONESIGNAL_REST_KEY}`
+            },
+            body: JSON.stringify({
+                app_id: ONESIGNAL_APP_ID,
+                filters: [{ field: "tag", key: "role", relation: "=", value: "worker" }],
+                headings: { en: "פלאפל עדני - הזמנה חדשה! 🥙" },
+                contents: { en: `${orderData.customerName} • ${orderData.arrivalTime} • ${orderData.totalPrice}₪` },
+                url: window.location.href
+            })
+        });
+        console.log('[OneSignal] Push sent ✓');
+    } catch(e) {
+        console.warn('[OneSignal] Push error:', e);
     }
 };
 
