@@ -536,8 +536,9 @@ const showPushNotification = async () => {
                             setUserRole('worker');
                             setCurrentWorkerName(found.name);
                             setCurrentWorkerId(found.id);
-                            requestNotificationPermission(); // בקשת פוש
+                            requestNotificationPermission();
                             setView('dashboard');
+                            saveFCMToken(found.id);
                             setPin('');
                         } else {
                             showAlert('קוד גישה שגוי או שאינו קיים במערכת!');
