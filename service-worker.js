@@ -3,7 +3,32 @@
 // ==========================================
 // קובץ זה חייב להיות ממוקם בתיקיית השורש של האתר
 // לצד index.html
+importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
+firebase.initializeApp({
+    apiKey: "AIzaSyDDDqa7BMnCA5IDlAfTjKUvlDdHgapnJnM",
+    authDomain: "falafel-adani.firebaseapp.com",
+    projectId: "falafel-adani",
+    storageBucket: "falafel-adani.firebasestorage.app",
+    messagingSenderId: "319607616871",
+    appId: "1:319607616871:web:68982636107da666262bc2"
+});
+
+const messaging = firebase.messaging();
+
+messaging.onBackgroundMessage((payload) => {
+    self.registration.showNotification(
+        payload.notification?.title || 'פלאפל עדני - הזמנה חדשה! 🥙',
+        {
+            body: payload.notification?.body || 'הזמנה חדשה התקבלה!',
+            icon: 'logo.jpg',
+            vibrate: [200, 100, 200, 100, 200],
+            requireInteraction: true,
+            tag: 'new-order-' + Date.now()
+        }
+    );
+});
 const CACHE_NAME = 'falafel-adani-v1';
 
 self.addEventListener('install', (event) => {
