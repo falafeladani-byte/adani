@@ -185,6 +185,24 @@ const requestNotificationPermission = async () => {
         await registerServiceWorker();
     }
 };
+const VAPID_KEY = 'BCUICRZaSptxM571_dsTc-NQxojMBO0lE0tubmuNOiITuIiSjlz-eDp1V4JdTvDt9v7OVJjyZAoz2IQQu_GxwE4';
+
+const saveFCMToken = async (workerId) => {
+    if (!messaging || !db || !workerId) return;
+    try {
+        const token = await messaging.getToken({ vapidKey: VAPID_KEY });
+        if (token) {
+            await db.collection('fcm_tokens').doc(workerId).set({
+                token,
+                workerId,
+                updatedAt: new Date().toISOString()
+            });
+            console.log('[FCM] Token saved ✓');
+        }
+    } catch (err) {
+        console.warn('[FCM] Token error:', err.message);
+    }
+};
 
 const showPushNotification = async () => {
     if (!("Notification" in window) || Notification.permission !== "granted") return;
