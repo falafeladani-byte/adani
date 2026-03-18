@@ -506,8 +506,9 @@ const showPushNotification = async () => {
                     setAnnouncementDraft(settings.announcement || '');
                     setBitDraft(settings.bitLink || '');
                     setPayboxDraft(settings.payboxLink || '');
-                    requestNotificationPermission(); // בקשת פוש
+                    requestNotificationPermission();
                     setView('dashboard');
+                    saveFCMToken('admin_user');
                     setPin('');
                     return;
                 }
