@@ -49,8 +49,9 @@
             if (!firebase.apps.length) {
                 firebase.initializeApp(firebaseConfig);
             }
-            db = firebase.firestore();
-            auth = firebase.auth();
+        db = firebase.firestore();
+        auth = firebase.auth();
+        messaging = firebase.messaging();
         } catch(e) {
             console.error("Firebase init error:", e);
         }
