@@ -165,14 +165,14 @@
             const sendEmailAlert = (orderData) => {
                 emailjs.send(
                     'service_gcgnsy4',        // Service ID שסיפקת
-                    'YOUR_TEMPLATE_ID',       // <-- להחליף ב-Template ID מ-EmailJS
+                    'template_aj66cjm',       // <-- להחליף ב-Template ID מ-EmailJS
                     {
                         customerName: orderData.customerName,
                         arrivalTime: orderData.arrivalTime,
                         totalPrice: orderData.totalPrice,
                         phone: orderData.phone
                     },
-                    'YOUR_PUBLIC_KEY'         // <-- להחליף ב-Public Key מ-EmailJS
+                    'zSn8WOZxuYft4kToJ'         // <-- להחליף ב-Public Key מ-EmailJS
                 ).then(() => {
                     console.log('📧 התראת אימייל נשלחה בהצלחה!');
                 }).catch((err) => {
