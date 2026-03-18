@@ -156,37 +156,70 @@
                 } catch (e) { }
             };
 
-            const requestNotificationPermission = () => {
-                if ("Notification" in window) {
-                    if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-                        Notification.requestPermission();
-                    }
-                }
-            };
+// ==========================================
+// 🔔 SERVICE WORKER REGISTRATION
+// ==========================================
+const registerServiceWorker = async () => {
+    if (!("serviceWorker" in navigator)) return null;
+    try {
+        const reg = await navigator.serviceWorker.register("service-worker.js", { scope: "/" });
+        console.log("[App] SW registered:", reg.scope);
+        return reg;
+    } catch (err) {
+        console.warn("[App] SW failed:", err.message);
+        return null;
+    }
+};
 
-            const showPushNotification = () => {
-                if (!("Notification" in window)) return;
-                if (Notification.permission === "granted") {
-                    try {
-                        navigator.serviceWorker.getRegistration().then(reg => {
-                            const options = {
-                                body: "הזמנה חדשה התקבלה בלוח, כנס להכין!",
-                                icon: "logo.jpg",
-                                vibrate: [200, 100, 200]
-                            };
-                            if (reg) {
-                                reg.showNotification("פלאפל עדני - הזמנה חדשה! 🥙", options);
-                            } else {
-                                new Notification("פלאפל עדני - הזמנה חדשה! 🥙", options);
-                            }
-                        });
-                    } catch (err) {
-                        new Notification("פלאפל עדני - הזמנה חדשה! 🥙", {
-                            body: "הזמנה חדשה התקבלה בלוח, כנס להכין!"
-                        });
-                    }
+window.addEventListener("load", () => { registerServiceWorker(); });
+
+const requestNotificationPermission = async () => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") {
+        await Notification.requestPermission();
+    }
+    if ("serviceWorker" in navigator && Notification.permission === "granted") {
+        await registerServiceWorker();
+    }
+};
+
+const showPushNotification = async () => {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    try {
+        if ("serviceWorker" in navigator) {
+            let reg = await navigator.serviceWorker.getRegistration();
+            if (!reg) reg = await registerServiceWorker();
+            if (reg) {
+                const sw = reg.active || reg.waiting || reg.installing;
+                if (sw) {
+                    sw.postMessage({
+                        type: "NEW_ORDER",
+                        payload: {
+                            body: "הזמנה חדשה התקבלה! כנס ללוח להכין 🥙",
+                            icon: "logo.jpg",
+                            url: window.location.href
+                        }
+                    });
+                    return;
                 }
-            };
+                await reg.showNotification("פלאפל עדני - הזמנה חדשה! 🥙", {
+                    body: "הזמנה חדשה התקבלה! כנס ללוח להכין 🥙",
+                    icon: "logo.jpg",
+                    vibrate: [200, 100, 200, 100, 200],
+                    requireInteraction: true,
+                    tag: "new-order-" + Date.now()
+                });
+                return;
+            }
+        }
+    } catch (err) { console.warn("[App] SW notification failed:", err); }
+    
+    // Fallback
+    new Notification("פלאפל עדני - הזמנה חדשה! 🥙", {
+        body: "הזמנה חדשה התקבלה! כנס ללוח להכין 🥙",
+        icon: "logo.jpg"
+    });
+};
             // ==========================================
 
             // Auth init
