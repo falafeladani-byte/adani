@@ -222,6 +222,19 @@
                 return () => unsubscribe();
             }, []);
 
+            // ===== כניסה אוטומטית =====
+            useEffect(() => {
+                const savedRole = localStorage.getItem('falafel_role');
+                const savedName = localStorage.getItem('falafel_name');
+                const savedId = localStorage.getItem('falafel_id');
+                if (savedRole && savedName && savedId) {
+                    setUserRole(savedRole);
+                    setCurrentWorkerName(savedName);
+                    setCurrentWorkerId(savedId);
+                    setView('dashboard');
+                }
+            }, []);
+
             useEffect(() => {
                 if (!db) return;
 
@@ -504,6 +517,9 @@
                     setAdminTab('orders');
                     setView('dashboard');
                     setPin('');
+                    localStorage.setItem('falafel_role', 'admin');
+                    localStorage.setItem('falafel_name', 'מנהל ראשי');
+                    localStorage.setItem('falafel_id', 'admin_user');
                     return;
                 }
                 const workerFromState = workers.find(w => String(w.pin) === String(trimmedPin));
@@ -513,6 +529,9 @@
                     setCurrentWorkerId(workerFromState.id);
                     setView('dashboard');
                     setPin('');
+                    localStorage.setItem('falafel_role', 'worker');
+                    localStorage.setItem('falafel_name', workerFromState.name);
+                    localStorage.setItem('falafel_id', workerFromState.id);
                     return;
                 }
                 if (db) {
@@ -527,6 +546,9 @@
                             setCurrentWorkerId(found.id);
                             setView('dashboard');
                             setPin('');
+                            localStorage.setItem('falafel_role', 'worker');
+                            localStorage.setItem('falafel_name', found.name);
+                            localStorage.setItem('falafel_id', found.id);
                         } else {
                             showAlert('קוד גישה שגוי או שאינו קיים במערכת!');
                             setPin('');
@@ -1253,7 +1275,7 @@
                                     </div>
                                 )}
                                 <button type="button"
-                                    onClick={() => { setView('welcome'); setUserRole('customer'); setCurrentWorkerName(''); setCurrentWorkerId(''); isFirstLoad.current = true; prevOrderCount.current = 0; }}
+                                    onClick={() => { setView('welcome'); setUserRole('customer'); setCurrentWorkerName(''); setCurrentWorkerId(''); isFirstLoad.current = true; prevOrderCount.current = 0; localStorage.removeItem('falafel_role'); localStorage.removeItem('falafel_name'); localStorage.removeItem('falafel_id'); }}
                                     className="bg-white text-black border-4 border-black hover:bg-yellow-400 px-6 py-4 font-black flex justify-center items-center gap-3 shadow-[6px_6px_0_0_#fff] transition-all uppercase text-xl active:translate-y-1 active:translate-x-1 active:shadow-none">
                                     <Icon name="power" size={24} /> התנתק
                                 </button>
