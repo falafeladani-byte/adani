@@ -64,7 +64,7 @@
         const INGREDIENTS_SABICH = ["חומוס", "חריף", "קטשופ", "סלט ירקות", "חמוצים", "כרוב", "טחינה", "עמבה", "צ'יפס", "ביצה", "חציל"];
 
         const LOCATIONS = {
-            0: 'סגור', 1: 'נריה', 2: 'נעלה', 3: 'כפר האורנים', 4: 'מושב שילת', 5: 'סגור', 6: 'סגור'
+            0: 'סגור', 1: 'נריה', 2: 'נעלה', 3: 'כפר האורנים', 4: 'דולב', 5: 'סגור', 6: 'סגור'
         };
 
         const DEFAULT_MENU = [
@@ -434,7 +434,7 @@
                 if (!trimmedPin) { showAlert('הזן קוד גישה!'); return; }
 
                 // מנהל ראשי
-                if (trimmedPin === '1234') {
+                if (trimmedPin === '7222') {
                     setUserRole('admin');
                     setCurrentWorkerName('מנהל ראשי');
                     setCurrentWorkerId('admin_user');
