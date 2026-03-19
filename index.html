@@ -7,6 +7,7 @@
     <link rel="manifest" href="manifest.json">
     
     
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -76,7 +77,7 @@
         const INGREDIENTS_FALAFEL = ["חומוס", "כדורים", "חריף", "קטשופ", "סלט ירקות", "חמוצים", "כרוב", "טחינה", "עמבה", "צ'יפס"];
         const INGREDIENTS_SABICH = ["חומוס", "חריף", "קטשופ", "סלט ירקות", "חמוצים", "כרוב", "טחינה", "עמבה", "צ'יפס", "ביצה", "חציל"];
 
-        //ברירת מחדל ימי פעילות - ניתן לשינוי שבועי
+        // ברירת מחדל ימי פעילות - ניתן לשינוי שבועי
         const DEFAULT_WEEKLY_LOCATIONS = {
             0: 'סגור', 1: 'נריה', 2: 'נעלה', 3: 'כפר האורנים', 4: 'דולב', 5: 'סגור', 6: 'סגור'
         };
@@ -192,54 +193,21 @@
                 } catch (e) { }
             };
 
-            // ==========================================
-            // 📲 TELEGRAM - שליחת התראה בהזמנה חדשה
-            // ==========================================
-            const TELEGRAM_BOT_TOKEN = '8611199717:AAFtwa3N07gSjZCU84jz4x8vwnMUu4HTfxs';
-            const TELEGRAM_CHAT_IDS = ['1444583167']; // הוסף Chat IDs נוספים לרשימה
-
-            const sendTelegramAlert = (orderData) => {
-                const itemsList = (orderData.items || []).map(c => {
-                    const name = (c && c.item && c.item.name) || 'מנה';
-                    const price = (c && c.item && c.item.price) || 0;
-                    const ings = (c.ingredients || []).length > 0 ? c.ingredients.join(', ') : 'ללא תוספות';
-                    const forWho = c.forWho ? ' (עבור: ' + c.forWho + ')' : '';
-                    return name + forWho + ' - ' + ings + ' | ' + price + '₪';
-                }).join('
-');
-
-                const msg = [
-                    '🥙 *הזמנה חדשה!*',
-                    '',
-                    '👤 *שם:* ' + orderData.customerName,
-                    '📞 *טלפון:* ' + orderData.phone,
-                    '🕐 *שעת הגעה:* ' + orderData.arrivalTime,
-                    orderData.isPreOrder ? '📅 *הזמנה מראש!*' : '',
-                    '',
-                    '🧾 *פירוט הזמנה:*',
-                    itemsList,
-                    '',
-                    orderData.orderNote ? '📝 *הערה:* ' + orderData.orderNote : '',
-                    '💰 *סהכ: ' + orderData.totalPrice + '₪*',
-                ].filter(Boolean).join('
-');
-
-                TELEGRAM_CHAT_IDS.forEach(chatId => {
-                    fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            chat_id: chatId,
-                            text: msg,
-                            parse_mode: 'Markdown'
-                        })
-                    }).then(r => r.json()).then(data => {
-                        if (data.ok) {
-                            console.log('📲 התראת טלגרם נשלחה ל-' + chatId);
-                        } else {
-                            console.error('שגיאת טלגרם:', data.description);
-                        }
-                    }).catch(err => console.error('שגיאה בשליחת טלגרם:', err));
+            const sendEmailAlert = (orderData) => {
+                emailjs.send(
+                    'service_gcgnsy4',
+                    'template_aj66cjm',
+                    {
+                        customerName: orderData.customerName,
+                        arrivalTime: orderData.arrivalTime,
+                        totalPrice: orderData.totalPrice,
+                        phone: orderData.phone
+                    },
+                    'zSn8WOZxuYft4kToJ'
+                ).then(() => {
+                    console.log('אימייל נשלח!');
+                }).catch((err) => {
+                    console.error('שגיאה:', err);
                 });
             };
 
@@ -481,7 +449,7 @@
                         setPreOrderDate('');
                         setCurrentOrderId(orderId);
                         setView('tracking');
-                        sendTelegramAlert(newOrder);
+                        sendEmailAlert(newOrder);
                     })
                     .catch(e => {
                         console.error("Order error:", e);
