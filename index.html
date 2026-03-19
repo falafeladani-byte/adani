@@ -6,7 +6,7 @@
     <title>פלאפל עדני - הזמנות אונליין</title>
     <link rel="manifest" href="manifest.json">
     
-    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -87,7 +87,9 @@
             { id: '1', name: "מנת פלאפל", price: 22, category: 'falafel', imageUrl: "falafel.jpg" },
             { id: '2', name: "חצי מנה פלאפל", price: 12, category: 'falafel', imageUrl: "half-falafel.jpg" },
             { id: '3', name: "מנת סביח", price: 22, category: 'sabich', imageUrl: "sabich.jpg" },
+            { id: '11', name: "משפחתי 5 מנות פלאפל", price: 120, category: 'none', imageUrl: "falafel.jpg" },
             { id: '4', name: "מנת צ'יפס", price: 15, category: 'none', imageUrl: "chips.jpg" },
+            { id: '12', name: "תבנית צ'יפס", price: 45, category: 'none', imageUrl: "chips.jpg" },
             { id: '5', name: "פחית", price: 8, category: 'none', imageUrl: "can.jpg" },
             { id: '6', name: "בקבוק שתייה", price: 9, category: 'none', imageUrl: "bottle.jpg" },
             { id: '7', name: "מים", price: 5, category: 'none', imageUrl: "water.jpg" },
@@ -190,21 +192,54 @@
                 } catch (e) { }
             };
 
-            const sendEmailAlert = (orderData) => {
-                emailjs.send(
-                    'service_gcgnsy4',
-                    'template_aj66cjm',
-                    {
-                        customerName: orderData.customerName,
-                        arrivalTime: orderData.arrivalTime,
-                        totalPrice: orderData.totalPrice,
-                        phone: orderData.phone
-                    },
-                    'zSn8WOZxuYft4kToJ'
-                ).then(() => {
-                    console.log('📧 התראת אימייל נשלחה בהצלחה!');
-                }).catch((err) => {
-                    console.error('שגיאה בשליחת אימייל:', err);
+            // ==========================================
+            // 📲 TELEGRAM - שליחת התראה בהזמנה חדשה
+            // ==========================================
+            const TELEGRAM_BOT_TOKEN = '8611199717:AAFtwa3N07gSjZCU84jz4x8vwnMUu4HTfxs';
+            const TELEGRAM_CHAT_IDS = ['1444583167']; // הוסף Chat IDs נוספים לרשימה
+
+            const sendTelegramAlert = (orderData) => {
+                const itemsList = (orderData.items || []).map(c => {
+                    const name = (c && c.item && c.item.name) || 'מנה';
+                    const price = (c && c.item && c.item.price) || 0;
+                    const ings = (c.ingredients || []).length > 0 ? c.ingredients.join(', ') : 'ללא תוספות';
+                    const forWho = c.forWho ? ' (עבור: ' + c.forWho + ')' : '';
+                    return name + forWho + ' - ' + ings + ' | ' + price + '₪';
+                }).join('
+');
+
+                const msg = [
+                    '🥙 *הזמנה חדשה!*',
+                    '',
+                    '👤 *שם:* ' + orderData.customerName,
+                    '📞 *טלפון:* ' + orderData.phone,
+                    '🕐 *שעת הגעה:* ' + orderData.arrivalTime,
+                    orderData.isPreOrder ? '📅 *הזמנה מראש!*' : '',
+                    '',
+                    '🧾 *פירוט הזמנה:*',
+                    itemsList,
+                    '',
+                    orderData.orderNote ? '📝 *הערה:* ' + orderData.orderNote : '',
+                    '💰 *סה'כ: ' + orderData.totalPrice + '₪*',
+                ].filter(Boolean).join('
+');
+
+                TELEGRAM_CHAT_IDS.forEach(chatId => {
+                    fetch('https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: chatId,
+                            text: msg,
+                            parse_mode: 'Markdown'
+                        })
+                    }).then(r => r.json()).then(data => {
+                        if (data.ok) {
+                            console.log('📲 התראת טלגרם נשלחה ל-' + chatId);
+                        } else {
+                            console.error('שגיאת טלגרם:', data.description);
+                        }
+                    }).catch(err => console.error('שגיאה בשליחת טלגרם:', err));
                 });
             };
 
@@ -446,7 +481,7 @@
                         setPreOrderDate('');
                         setCurrentOrderId(orderId);
                         setView('tracking');
-                        sendEmailAlert(newOrder);
+                        sendTelegramAlert(newOrder);
                     })
                     .catch(e => {
                         console.error("Order error:", e);
@@ -1077,18 +1112,6 @@
                                             required dir="ltr" />
                                     </div>
 
-                                    {/* ===== הזמנה מראש: שדה תאריך ===== */}
-                                    {isPreOrder && (
-                                        <div>
-                                            <label className="block font-black text-black mb-2 flex items-center gap-2 text-xl">
-                                                <Icon name="calendar" size={24} /> תאריך הגעה:
-                                            </label>
-                                            <input type="date" value={preOrderDate} onChange={(e) => setPreOrderDate(e.target.value)}
-                                                min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
-                                                className="w-full p-4 border-4 border-black outline-none font-black text-xl focus:bg-white shadow-[4px_4px_0_0_#000]"
-                                                required />
-                                        </div>
-                                    )}
 
                                     <div>
                                         <label className="block font-black text-black mb-2 flex items-center gap-2 text-xl">
